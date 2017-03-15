@@ -1,0 +1,85 @@
+
+setwd("C:/Users/Mao/Desktop/assessments_datasets")
+
+#### Install libraries:
+install.packages("reshape2")
+install.packages("ggplot2")
+install.packages("datasets")
+install.packages("corrplot")
+
+#### Load libraries
+library(reshape2)
+library(ggplot2)
+library(datasets)
+library(corrplot)
+
+
+# Load data:
+train.data <- read.csv("C:/Users/Mao/Desktop/assessments_datasets/Task1A_train.csv") #train data
+train1a.data <- as.matrix(train.data[,-2]) #extract data
+train1a.label <- as.matrix(train.data[,2]) #extract label
+
+# KNN regressor function
+# (distance should be one of euclidean, maximum, manhattan, canberra, binary or minkowski)
+knn <- function(train.data, train.label, test.data, K, distance = 'euclidean'){
+    train.len <- nrow(train.data)
+    test.len <- nrow(test.data)
+    dist <- as.matrix(dist(rbind(test.data, train.data), 
+                           method= distance))[1:test.len, (test.len+1):(test.len+train.len)]
+    
+    test.label <- as.matrix(nrow(test.data))
+    for (i in 1:test.len){
+        nn <- as.data.frame(sort(dist[i,], index.return = TRUE))[1:K,2]
+        test.label[i]<- mean(train.label[nn])
+    }
+    return (test.label)
+}
+
+
+
+# RMSE function
+rmse <- function(a,b){
+    rmse = sqrt(sum((a - b)^2, na.rm = TRUE ) / nrow(b))
+}
+
+# Cross Validation Function
+cv <- function(train.data, train.label, k_n=3, numFold=10){
+    # Create a data.frame store value
+    miss.cv <- data.frame('L'=rep(0,numFold),'test'=rep(0,numFold))
+    for(l in 1:numFold){
+        ind <- (((l-1)*nrow(train1a.data)/numFold)+1):((l*nrow(train1a.data))/numFold)
+        ### Split data
+        testdata <- matrix(train1a.data[ind,]) # test data
+        testlabel <- matrix(train1a.label[ind,]) # test label
+        traindata <- matrix(train1a.data[-ind,]) # train data
+        trainlabel <- matrix(train1a.label[-ind,]) # train label
+        #### save the value of l
+        miss.cv[l,'L'] <- l
+        ### calculate knn
+        k_nn<-knn(traindata, trainlabel, testdata, k_n)
+        #### calculate and record the train and test missclassification rates
+        miss.cv[l,'test'] <- rmse(k_nn,testlabel)
+    }
+    # Return miss.cv
+    return(miss.cv)
+}
+    
+
+k_n = 20
+miss.k <- data.frame('k'=rep(0,k_n),'sd'=rep(0,k_n),'u_bound'=rep(0,k_n),'l_bound'=rep(0,k_n),'mean_error'=rep(0,k_n))
+for(i in 1:k_n){
+    miss.k[i,'k'] <- i
+    cc<-cv(train1a.data,train1a.label,k_n=i,numFold)
+    miss.k[i,'mean_error'] <- mean(cc[,2])
+    miss.k[i,'sd'] <- sd(cc[,2], na.rm = FALSE)
+    miss.k[i,'u_bound'] <- (miss.k[i,'mean_error'] + miss.k[i,'sd'])
+    miss.k[i,'l_bound'] <- (miss.k[i,'mean_error'] - miss.k[i,'sd'])
+}
+
+# visulization steps
+miss.m <- melt(miss.k, id=c('k')) # reshape for visualization
+names(miss.m) <- c('k', 'type', 'mean_error')
+miss.m
+ggplot(data=miss.m, aes(x=1/k, y=mean_error, color=type)) + geom_point() + geom_line() + scale_color_discrete(guide = guide_legend(title = NULL)) + ggtitle('Missclassifcation') + theme_minimal() 
+
+

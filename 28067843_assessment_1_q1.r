@@ -1,0 +1,72 @@
+
+### set working directory to the dataset folder
+#install.packages("reshape2")
+#install.packages("ggplot2")
+#install.packages("corrplot")
+#install.packages("Cairo")
+library(reshape2)
+library(ggplot2)
+library(corrplot)
+library(datasets)
+
+
+
+#import dataset from files
+train.data <- read.csv("C:/Users/Mao/Desktop/assessments_datasets/Task1A_train.csv")
+#create data and label dataset for train and test
+train1a.data <- as.matrix(train.data[,-2])
+train1a.label <- as.matrix(train.data[,2])
+test.data <- read.csv("C:/Users/Mao/Desktop/assessments_datasets/Task1A_test.csv")
+test1a.data <- as.matrix(test.data[,-2])
+test1a.label <- as.matrix(test.data[,2])
+
+#check data
+head(train1a.data)
+head(train1a.label)
+head(test1a.data)
+head(test1a.label)
+
+# KNN function (distance should be one of euclidean, maximum, manhattan, canberra, binary or minkowski)
+knn <- function(train.data, train.label, test.data, K=3, distance = 'euclidean'){
+    test.label <- train.label
+    ## count number of train samples
+    train.len <- nrow(train.data)
+    
+    ## count number of test samples
+    test.len <- nrow(test.data)
+    
+    ## calculate distances between samples
+    dist <- as.matrix(dist(rbind(test.data, train.data), method= distance))[1:test.len, (test.len+1):(test.len+train.len)]
+    
+    ## for each test sample...
+    for (i in 1:test.len){
+        ### ...find its K nearest neighbours from training sampels...
+        nn <- as.data.frame(sort(dist[i,], index.return = TRUE))[1:K,2]
+        
+        ###... and calculate the predicted labels according to the majority vote
+        test.label[i]<- (mean(train.label[nn]))
+    }
+    
+    ## return the class labels as output
+    return (test.label)
+    #print(nn)
+}
+
+# RMSE function
+rmse <- function(a,b){
+    rmse = sqrt(sum((a - b)^2, na.rm = TRUE ) / nrow(b))
+}
+
+# calculate the train and test missclassification rates for K = 1,...,20
+miss <- data.frame('K'=1:20, 'train'=rep(0,20), 'test'=rep(0,20))
+for (k in 1:20){
+    miss[k,'train'] <- rmse(knn(train1a.data, train1a.label, train1a.data, K=k), train1a.label)
+    miss[k,'test'] <-  rmse(knn(train1a.data, train1a.label, test1a.data, K=k), test1a.label)
+}
+
+# plot misclassification percentage for train and test data sets
+miss.m <- melt(miss, id=c('K'))# reshape for visualization
+names(miss.m) <- c('K','type', 'error')
+ggplot(data=miss.m, aes(x=(1/K), y=error, color=type)) + geom_point() + geom_line() +
+       scale_color_discrete(guide = guide_legend(title = NULL)) + theme_minimal() +
+       ggtitle("Missclassification Error")

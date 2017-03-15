@@ -1,0 +1,99 @@
+
+setwd("C:/Users/Mao/Desktop/assessments_datasets")
+
+# load libraries:
+library(reshape2)
+library(ggplot2)
+library(corrplot)
+library(datasets)
+
+# load data
+train.data <- read.csv("C:/Users/Mao/Desktop/assessments_datasets/Task1B_train.csv")
+train1b.data <- as.matrix(train.data[,-5])
+train1b.label <- as.matrix(train.data[,5])
+test.data <- read.csv("C:/Users/Mao/Desktop/assessments_datasets/Task1B_test.csv")
+test1b.data <- as.matrix(test.data[,-5])
+test1b.label<- as.matrix(test.data[,5])
+
+#check data
+head(train1b.data)
+head(train1b.label)
+nrow(test1b.data)
+
+# define a function that generates sample indixes based on bootstrap technique
+boot <- function (original.size=100, sample.size=original.size, times=100){
+    indx <- matrix(nrow=times, ncol=sample.size)
+    for (t in 1:times){
+        indx[t, ] <- sample(x=original.size, size=sample.size, replace = TRUE)
+    }
+    return(indx)
+}
+# just to see if it works!
+boot(100, 10, 5)
+
+# KNN function (distance should be one of euclidean, maximum, manhattan, canberra, binary or minkowski)
+knn <- function(train.data, train.label, test.data, K=3, distance = 'euclidean'){
+    test.label <- train.label
+    train.len <- nrow(train.data)
+    test.len <- nrow(test.data)
+    dist <- as.matrix(dist(rbind(test.data, train.data), method= distance))[1:test.len, (test.len+1):(test.len+train.len)]
+    test.label <- as.matrix(nrow(test.data))
+    for (i in 1:test.len){
+        nn <- as.data.frame(sort(dist[i,], index.return = TRUE))[1:K,2]
+        test.label[i]<- mean(train.label[nn])
+    }
+    return (test.label)
+}
+
+# define a function that calculate the root mean squared error
+mse <- function(a,b){
+    mse = sqrt(sum((a - b)^2, na.rm = TRUE ) / nrow(a))
+}
+
+# fix the parameters (50,40,50)
+K <- 20           # Maximum K for KNN 
+L <- 100           # number of datasets
+N <- 25          # size of datasets
+
+# generate bootstrap indices:
+boot.indx <- boot(nrow(train1b.data), N, L)
+
+# a dataframe to track the number of missclassified samples in each case
+miss <- data.frame('K'=1:K, 'L'=1:L, 'test'=rep(0,L*K))
+
+# THIS MAY TAKE A FEW MINUTES TO COMPLETE
+## for every k values:
+for (k in 1: K){
+    
+    ### for every dataset sizes:
+    for (l in 1:L){
+        
+        #### calculate iteration index i
+        i <- (k-1)*L+l
+        
+        #### save sample indices that were selected by bootstrap
+        indx <- boot.indx[l,]
+        
+        #### save the value of k and l
+        miss[i,'K'] <- k
+        miss[i,'L'] <- l
+        
+        #### calculate and record the train and test missclassification rates
+        miss[i,'test'] <-  rmse(knn(train1b.data[indx, ], train1b.label[indx], test1b.data, K=k), test1b.label)
+    } 
+}
+
+# plot misclassification percentage for train and test data sets
+miss.m <- melt(miss, id=c('K', 'L')) # reshape for visualization
+names(miss.m) <- c('K', 'L', 'type', 'miss')
+ggplot(data=miss.m, aes(x=K, miss, color=type)) + geom_jitter(alpha=0.5)  + 
+    scale_fill_discrete(guide = guide_legend(title = NULL)) + 
+    ggtitle('Missclassifcation vs. K (Jitter Plot)') + theme_minimal() 
+
+ggplot(data=miss.m[miss.m$type=='test',], aes(factor(K), miss,fill=type)) + geom_boxplot(outlier.shape = NA)  + 
+    scale_color_discrete(guide = guide_legend(title = NULL)) + 
+    ggtitle('Missclassifcation vs. K (Box Plot)') + theme_minimal()
+# ignore the warnings (because of ignoring outliers)
+options(warn=-1)
+
+
