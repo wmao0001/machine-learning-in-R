@@ -1,6 +1,3 @@
-
-setwd("C:/Users/Mao/Desktop/assessments_datasets")
-
 # load libraries:
 library(reshape2)
 library(ggplot2)
@@ -8,10 +5,10 @@ library(corrplot)
 library(datasets)
 
 # load data
-train.data <- read.csv("C:/Users/Mao/Desktop/assessments_datasets/Task1B_train.csv")
+train.data <- read.csv("")
 train1b.data <- as.matrix(train.data[,-5])
 train1b.label <- as.matrix(train.data[,5])
-test.data <- read.csv("C:/Users/Mao/Desktop/assessments_datasets/Task1B_test.csv")
+test.data <- read.csv("")
 test1b.data <- as.matrix(test.data[,-5])
 test1b.label<- as.matrix(test.data[,5])
 
